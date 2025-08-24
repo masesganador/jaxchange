@@ -156,14 +156,15 @@ app.get('/api', (req, res) => {
 });
 
 // Serve React app for all other routes (SPA routing)
-app.get('*', (req, res) => {
+app.get('*', (req, res): void => {
   // Check if the request is for an API route
   if (req.path.startsWith('/api/')) {
-    return res.status(404).json({
+    res.status(404).json({
       success: false,
       error: 'API endpoint not found',
       timestamp: new Date().toISOString()
     });
+    return;
   }
 
   // Serve the React app for all other routes
@@ -175,13 +176,13 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Vercel serverless function handler
-export default async function handler(req: any, res: any) {
+export default async function handler(req: any, res: any): Promise<void> {
   try {
     // Initialize database on first request
     await initializeDatabase();
 
     // Handle the request using the Express app
-    return new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       app(req, res, (err: any) => {
         if (err) {
           console.error('❌ Request handling error:', err);
@@ -199,6 +200,5 @@ export default async function handler(req: any, res: any) {
       message: 'An unexpected error occurred',
       timestamp: new Date().toISOString()
     });
-    return Promise.resolve();
   }
 }
