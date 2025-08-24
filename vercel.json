@@ -1,40 +1,11 @@
 {
   "version": 2,
   "name": "jaxchange",
-  "builds": [
-    {
-      "src": "dist/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["dist/**"]
-      }
-    }
-  ],
   "buildCommand": "npm run vercel-build",
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/dist/index.js"
-    },
-    {
-      "src": "/health",
-      "dest": "/dist/index.js"
-    },
-    {
-      "src": "/api-docs(.*)",
-      "dest": "/dist/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.js"
-    }
-  ],
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "node",
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "dist/index.js": {
-      "maxDuration": 30
-    }
   }
 }
