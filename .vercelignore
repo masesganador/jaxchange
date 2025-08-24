@@ -14,14 +14,8 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
-# Build artifacts
+# Build artifacts (but keep client build)
 dist/
-build/
-
-# Include client directory for React build
-!client/
-!client/public/
-!client/src/
 
 # IDE files
 .vscode/
