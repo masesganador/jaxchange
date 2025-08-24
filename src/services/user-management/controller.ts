@@ -18,11 +18,11 @@ const generateTokens = (user: Omit<User, 'password_hash'>): { token: string; ref
     exp: Math.floor(Date.now() / 1000) + (15 * 60), // 15 minutes
   };
 
-  const token = jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.expiry });
+  const token = jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.expiry } as jwt.SignOptions);
   const refresh_token = jwt.sign(
     { user_id: user.user_id, type: 'refresh' },
     config.jwt.refreshSecret,
-    { expiresIn: config.jwt.refreshExpiry }
+    { expiresIn: config.jwt.refreshExpiry } as jwt.SignOptions
   );
 
   return { token, refresh_token };

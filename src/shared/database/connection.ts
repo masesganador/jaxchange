@@ -56,7 +56,7 @@ export class DatabaseConnection {
         : {
             host: config.redis.host,
             port: config.redis.port,
-            password: config.redis.password || undefined,
+            ...(config.redis.password && { password: config.redis.password }),
             retryDelayOnFailover: 100,
             enableReadyCheck: false,
             lazyConnect: true,

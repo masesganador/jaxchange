@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "npx tsc && npm run copy-assets",
-    "copy-assets": "mkdir -p dist/shared/database && cp -r src/shared/database/migrations dist/shared/database/",
+    "build:vercel": "npm run db:migrate && npx tsc && npm run copy-assets",
+    "vercel-build": "npm run db:migrate && npx tsc && npm run copy-assets",
+    "copy-assets": "if not exist dist\\shared\\database mkdir dist\\shared\\database && xcopy /E /I src\\shared\\database\\migrations dist\\shared\\database\\migrations",
     "start": "node dist/index.js",
     "test": "jest",
     "test:unit": "jest src/tests/unit",
@@ -16,8 +18,8 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "typecheck": "tsc --noEmit",
     "postinstall": "npm run build",
-    "db:migrate": "echo 'Database migration placeholder'",
-    "db:seed": "echo 'Database seeding placeholder'"
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js"
   },
   "keywords": [],
   "author": "",
