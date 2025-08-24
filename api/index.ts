@@ -53,5 +53,6 @@ export default async function handler(req: any, res: any) {
       error: 'Internal server error',
       message: 'An unexpected error occurred'
     });
+    return Promise.resolve();
   }
 }
