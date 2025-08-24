@@ -19,9 +19,9 @@ export const errorHandler = (
   });
 
   // Default error values
-  let status = error.status || 500;
+  let status = (error as any).statusCode || 500;
   let message = error.message || 'Internal server error';
-  let code = error.code;
+  let code = (error as any).code;
 
   // Handle specific error types
   if (error.name === 'ValidationError') {
@@ -33,10 +33,10 @@ export const errorHandler = (
   } else if (error.name === 'TokenExpiredError') {
     status = 401;
     message = 'Token expired';
-  } else if (error.code === '23505') { // PostgreSQL unique constraint violation
+  } else if ((error as any).code === '23505') { // PostgreSQL unique constraint violation
     status = 409;
     message = 'Resource already exists';
-  } else if (error.code === '23503') { // PostgreSQL foreign key violation
+  } else if ((error as any).code === '23503') { // PostgreSQL foreign key violation
     status = 400;
     message = 'Invalid reference';
   }
@@ -44,6 +44,7 @@ export const errorHandler = (
   const response: ApiResponse = {
     success: false,
     error: message,
+    timestamp: new Date().toISOString(),
     ...(code && { code }),
     ...(config.server.nodeEnv === 'development' && { stack: error.stack }),
   };
@@ -55,6 +56,7 @@ export const notFoundHandler = (req: Request, res: Response): void => {
   const response: ApiResponse = {
     success: false,
     error: `Route ${req.method} ${req.path} not found`,
+    timestamp: new Date().toISOString(),
   };
 
   res.status(404).json(response);

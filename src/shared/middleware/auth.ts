@@ -12,15 +12,13 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    const error: APIError = new Error('Access token required') as APIError;
-    error.status = 401;
+    const error = new APIError('Access token required', 401);
     return next(error);
   }
 
   jwt.verify(token, config.jwt.secret, (err, user) => {
     if (err) {
-      const error: APIError = new Error('Invalid or expired token') as APIError;
-      error.status = 403;
+      const error = new APIError('Invalid or expired token', 403);
       return next(error);
     }
 
@@ -32,15 +30,13 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
 export const requireVerificationLevel = (minLevel: number) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      const error: APIError = new Error('Authentication required') as APIError;
-      error.status = 401;
+      const error = new APIError('Authentication required', 401);
       return next(error);
     }
 
-    if (req.user.verification_level < minLevel) {
-      const error: APIError = new Error(`Verification level ${minLevel} required`) as APIError;
-      error.status = 403;
-      error.code = 'INSUFFICIENT_VERIFICATION';
+    if ((req.user as any).verification_level < minLevel) {
+      const error = new APIError(`Verification level ${minLevel} required`, 403);
+      (error as any).code = 'INSUFFICIENT_VERIFICATION';
       return next(error);
     }
 

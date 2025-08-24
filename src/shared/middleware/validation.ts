@@ -35,9 +35,8 @@ export const validateRequest = (schema: {
     }
 
     if (errors.length > 0) {
-      const error: APIError = new Error(errors.join('; ')) as APIError;
-      error.status = 400;
-      error.code = 'VALIDATION_ERROR';
+      const error = new APIError(errors.join('; '), 400);
+      (error as any).code = 'VALIDATION_ERROR';
       return next(error);
     }
 
