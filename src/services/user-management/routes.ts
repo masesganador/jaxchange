@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { validateRequest, userSchemas } from '@/shared/middleware/validation';
-import { authenticateToken } from '@/shared/middleware/auth';
-import { asyncHandler } from '@/shared/middleware/error';
+import { validateRequest, userSchemas } from '../../shared/middleware/validation';
+import { authenticateToken } from '../../shared/middleware/auth';
+import { asyncHandler } from '../../shared/middleware/error';
 import * as userController from './controller';
 
 const router = Router();

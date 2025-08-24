@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { APIError, ApiResponse } from '@/shared/types';
-import config from '@/config';
+import { APIError, ApiResponse } from '../types';
+import config from '../../config';
 
 export const errorHandler = (
   error: APIError,

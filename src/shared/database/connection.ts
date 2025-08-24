@@ -1,6 +1,6 @@
 import { Pool, PoolConfig } from 'pg';
 import Redis from 'ioredis';
-import config from '@/config';
+import config from '../../config';
 
 export class DatabaseConnection {
   private static pgPool: Pool;

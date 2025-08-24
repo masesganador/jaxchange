@@ -3,10 +3,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 
-import config from '@/config';
-import { db } from '@/shared/database/connection';
-import { AuthenticatedRequest } from '@/shared/middleware/auth';
-import { APIError, ApiResponse, RegisterRequest, LoginRequest, AuthResponse, JWTPayload, User } from '@/shared/types';
+import config from '../../config';
+import { db } from '../../shared/database/connection';
+import { AuthenticatedRequest } from '../../shared/middleware/auth';
+import { APIError, ApiResponse, RegisterRequest, LoginRequest, AuthResponse, JWTPayload, User } from '../../shared/types';
 
 // Generate JWT tokens
 const generateTokens = (user: Omit<User, 'password_hash'>): { token: string; refresh_token: string } => {

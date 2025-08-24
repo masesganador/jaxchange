@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
-import { APIError } from '@/shared/types';
+import { APIError } from '../types';
 
 export const validateRequest = (schema: {
   body?: Joi.ObjectSchema;

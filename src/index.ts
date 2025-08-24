@@ -7,9 +7,9 @@ import rateLimit from 'express-rate-limit';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
-import config from '@/config';
-import { db } from '@/shared/database/connection';
-import { errorHandler, notFoundHandler } from '@/shared/middleware/error';
+import config from './config';
+import { db } from './shared/database/connection';
+import { errorHandler, notFoundHandler } from './shared/middleware/error';
 
 const app = express();
 
@@ -120,7 +120,7 @@ app.get(`/api/${config.server.apiVersion}`, (req, res) => {
 });
 
 // Service routes
-import userRoutes from '@/services/user-management/routes';
+import userRoutes from './services/user-management/routes';
 app.use(`/api/${config.server.apiVersion}/auth`, userRoutes);
 app.use(`/api/${config.server.apiVersion}/users`, userRoutes);
 // app.use(`/api/${config.server.apiVersion}/trading`, tradingRoutes);
