@@ -181,13 +181,13 @@ export default async function handler(req: any, res: any) {
     await initializeDatabase();
 
     // Handle the request using the Express app
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       app(req, res, (err: any) => {
         if (err) {
           console.error('❌ Request handling error:', err);
           reject(err);
         } else {
-          resolve(undefined);
+          resolve();
         }
       });
     });
