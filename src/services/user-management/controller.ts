@@ -11,16 +11,16 @@ import { APIError, ApiResponse, RegisterRequest, LoginRequest, AuthResponse, JWT
 // Generate JWT tokens
 const generateTokens = (user: Omit<User, 'password_hash'>): { token: string; refresh_token: string } => {
   const payload: JWTPayload = {
-    user_id: user.user_id,
+    userId: user.id,
     email: user.email,
-    verification_level: 0, // Will be updated based on KYC status
+    status: user.status,
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + (15 * 60), // 15 minutes
   };
 
   const token = jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.expiry } as jwt.SignOptions);
   const refresh_token = jwt.sign(
-    { user_id: user.user_id, type: 'refresh' },
+    { userId: user.id, type: 'refresh' },
     config.jwt.refreshSecret,
     { expiresIn: config.jwt.refreshExpiry } as jwt.SignOptions
   );
@@ -39,7 +39,7 @@ const generateReferralCode = (): string => {
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
-  const { email, password, first_name, last_name, phone, referral_code } = req.body as RegisterRequest;
+  const { email, password, firstName, lastName, phone, referralCode } = req.body as RegisterRequest;
   
   const pgPool = db.getPostgreSQLPool();
   const client = await pgPool.connect();
@@ -136,11 +136,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       data: {
         user: {
           ...user,
-          password_hash: undefined
+          passwordHash: undefined
         },
-        token,
-        refresh_token
-      }
+        accessToken: token,
+        refreshToken: refresh_token,
+        expiresIn: 15 * 60
+      },
+      timestamp: new Date().toISOString()
     };
 
     res.status(201).json(response);
@@ -169,9 +171,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
 
     if (userResult.rows.length === 0) {
-      const error: APIError = new Error('Invalid email or password') as APIError;
-      error.status = 401;
-      throw error;
+      throw new APIError('Invalid email or password', 401);
     }
 
     const user = userResult.rows[0];
@@ -179,16 +179,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
-      const error: APIError = new Error('Invalid email or password') as APIError;
-      error.status = 401;
-      throw error;
+      throw new APIError('Invalid email or password', 401);
     }
 
     // Check if user is active
     if (user.status !== 'active' && user.status !== 'pending') {
-      const error: APIError = new Error('Account is suspended or closed') as APIError;
-      error.status = 403;
-      throw error;
+      throw new APIError('Account is suspended or closed', 403);
     }
 
     // Update last login
@@ -211,9 +207,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       success: true,
       data: {
         user: userWithoutPassword,
-        token,
-        refresh_token
-      }
+        accessToken: token,
+        refreshToken: refresh_token,
+        expiresIn: 15 * 60
+      },
+      timestamp: new Date().toISOString()
     };
 
     res.json(response);
@@ -226,9 +224,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
   const { refresh_token } = req.body;
 
   if (!refresh_token) {
-    const error: APIError = new Error('Refresh token required') as APIError;
-    error.status = 400;
-    throw error;
+    throw new APIError('Refresh token required', 400);
   }
 
   try {
@@ -236,19 +232,15 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     const decoded = jwt.verify(refresh_token, config.jwt.refreshSecret) as any;
     
     if (decoded.type !== 'refresh') {
-      const error: APIError = new Error('Invalid token type') as APIError;
-      error.status = 401;
-      throw error;
+      throw new APIError('Invalid token type', 401);
     }
 
     // Check if refresh token exists in Redis
     const redis = db.getRedisClient();
-    const storedToken = await redis.get(`refresh_token:${decoded.user_id}`);
+    const storedToken = await redis.get(`refresh_token:${decoded.userId}`);
     
     if (storedToken !== refresh_token) {
-      const error: APIError = new Error('Invalid refresh token') as APIError;
-      error.status = 401;
-      throw error;
+      throw new APIError('Invalid refresh token', 401);
     }
 
     // Get user data
@@ -258,13 +250,11 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
        FROM users u
        LEFT JOIN user_verification v ON u.user_id = v.user_id
        WHERE u.user_id = $1`,
-      [decoded.user_id]
+      [decoded.userId]
     );
 
     if (userResult.rows.length === 0) {
-      const error: APIError = new Error('User not found') as APIError;
-      error.status = 404;
-      throw error;
+      throw new APIError('User not found', 404);
     }
 
     const user = userResult.rows[0];
@@ -280,9 +270,11 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       success: true,
       data: {
         user,
-        token,
-        refresh_token: new_refresh_token
-      }
+        accessToken: token,
+        refreshToken: new_refresh_token,
+        expiresIn: 15 * 60
+      },
+      timestamp: new Date().toISOString()
     };
 
     res.json(response);
@@ -293,7 +285,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 
 export const logout = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.user_id;
+    const userId = req.user!.userId;
     
     // Remove refresh token from Redis
     const redis = db.getRedisClient();
@@ -301,7 +293,8 @@ export const logout = async (req: AuthenticatedRequest, res: Response): Promise<
 
     const response: ApiResponse = {
       success: true,
-      message: 'Logged out successfully'
+      message: 'Logged out successfully',
+      timestamp: new Date().toISOString()
     };
 
     res.json(response);
@@ -312,7 +305,7 @@ export const logout = async (req: AuthenticatedRequest, res: Response): Promise<
 
 export const getProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.user_id;
+    const userId = req.user!.userId;
     
     const pgPool = db.getPostgreSQLPool();
     const profileResult = await pgPool.query(
@@ -332,14 +325,13 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response): Prom
     );
 
     if (profileResult.rows.length === 0) {
-      const error: APIError = new Error('User not found') as APIError;
-      error.status = 404;
-      throw error;
+      throw new APIError('User not found', 404);
     }
 
     const response: ApiResponse = {
       success: true,
-      data: profileResult.rows[0]
+      data: profileResult.rows[0],
+      timestamp: new Date().toISOString()
     };
 
     res.json(response);
@@ -350,13 +342,11 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response): Prom
 
 export const updateProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.user_id;
+    const userId = req.user!.userId;
     const updates = req.body;
     
     if (Object.keys(updates).length === 0) {
-      const error: APIError = new Error('No update data provided') as APIError;
-      error.status = 400;
-      throw error;
+      throw new APIError('No update data provided', 400);
     }
 
     const pgPool = db.getPostgreSQLPool();
@@ -377,15 +367,14 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
     );
 
     if (updateResult.rows.length === 0) {
-      const error: APIError = new Error('Profile not found') as APIError;
-      error.status = 404;
-      throw error;
+      throw new APIError('Profile not found', 404);
     }
 
     const response: ApiResponse = {
       success: true,
       data: updateResult.rows[0],
-      message: 'Profile updated successfully'
+      message: 'Profile updated successfully',
+      timestamp: new Date().toISOString()
     };
 
     res.json(response);
