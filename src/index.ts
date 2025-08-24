@@ -137,8 +137,18 @@ const startServer = async (): Promise<void> => {
   try {
     // Initialize database connections
     console.log('🔄 Initializing database connections...');
-    await db.initializePostgreSQL();
-    await db.initializeRedis();
+    
+    try {
+      await db.initializePostgreSQL();
+    } catch (error) {
+      console.warn('⚠️  PostgreSQL initialization failed, continuing without database...');
+    }
+    
+    try {
+      await db.initializeRedis();
+    } catch (error) {
+      console.warn('⚠️  Redis initialization failed, continuing without Redis...');
+    }
 
     // Start the server
     app.listen(config.server.port, () => {

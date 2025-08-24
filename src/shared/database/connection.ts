@@ -36,7 +36,12 @@ export class DatabaseConnection {
         client.release();
       } catch (error) {
         console.error('❌ PostgreSQL connection failed:', error);
-        throw error;
+        // Don't throw error in production if database is not available
+        if (config.server.nodeEnv === 'production') {
+          console.warn('⚠️  Database connection failed in production, continuing without database...');
+        } else {
+          throw error;
+        }
       }
     }
 
@@ -71,7 +76,12 @@ export class DatabaseConnection {
         console.log('✅ Redis connected successfully');
       } catch (error) {
         console.error('❌ Redis connection failed:', error);
-        throw error;
+        // Don't throw error in production if Redis is not available
+        if (config.server.nodeEnv === 'production') {
+          console.warn('⚠️  Redis connection failed in production, continuing without Redis...');
+        } else {
+          throw error;
+        }
       }
     }
 

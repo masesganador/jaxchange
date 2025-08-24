@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "npx tsc && npm run copy-assets",
-    "build:vercel": "npm run db:migrate && npx tsc && npm run copy-assets",
-    "vercel-build": "npm run db:migrate && npx tsc && npm run copy-assets",
+    "build:vercel": "npx tsc && npm run copy-assets",
+    "vercel-build": "npx tsc && npm run copy-assets",
     "copy-assets": "node scripts/copy-assets.js",
     "start": "node dist/index.js",
     "test": "jest",
