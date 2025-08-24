@@ -32,15 +32,10 @@ if (fs.existsSync(clientBuildDir)) {
   
   console.log('✅ Client build files copied to public directory');
 } else {
-  console.log('⚠️  Client build directory not found, skipping copy');
-}
-
-// Create a simple index.html in public if React build didn't create one
-const indexHtmlPath = path.join(publicDir, 'index.html');
-const reactIndexExists = fs.existsSync(clientBuildDir) && fs.existsSync(path.join(clientBuildDir, 'index.html'));
-
-if (!fs.existsSync(indexHtmlPath) && !reactIndexExists) {
-  const indexHtml = `<!DOCTYPE html>
+  console.log('⚠️  Client build directory not found, creating static React app');
+  
+  // Create a static React app structure for Vercel deployment
+  const staticApp = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -176,6 +171,8 @@ if (!fs.existsSync(indexHtmlPath) && !reactIndexExists) {
 </body>
 </html>`;
   
-  fs.writeFileSync(indexHtmlPath, indexHtml);
-  console.log('✅ Created index.html in public directory');
+  fs.writeFileSync(indexHtmlPath, staticApp);
+  console.log('✅ Created static React app for Vercel deployment');
 }
+
+
