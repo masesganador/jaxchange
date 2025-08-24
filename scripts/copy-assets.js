@@ -9,24 +9,37 @@ if (!fs.existsSync(publicDir)) {
 
 // Copy client build files to public directory
 const clientBuildDir = path.join(__dirname, '../client/build');
-const publicBuildDir = path.join(publicDir, 'build');
 
 if (fs.existsSync(clientBuildDir)) {
-  // Remove existing build directory in public
-  if (fs.existsSync(publicBuildDir)) {
-    fs.rmSync(publicBuildDir, { recursive: true, force: true });
-  }
-
-  // Copy client build to public
-  fs.cpSync(clientBuildDir, publicBuildDir, { recursive: true });
+  // Copy client build files directly to public directory
+  const files = fs.readdirSync(clientBuildDir);
+  
+  files.forEach(file => {
+    const sourcePath = path.join(clientBuildDir, file);
+    const targetPath = path.join(publicDir, file);
+    
+    if (fs.statSync(sourcePath).isDirectory()) {
+      // Copy directories recursively
+      if (fs.existsSync(targetPath)) {
+        fs.rmSync(targetPath, { recursive: true, force: true });
+      }
+      fs.cpSync(sourcePath, targetPath, { recursive: true });
+    } else {
+      // Copy files directly
+      fs.copyFileSync(sourcePath, targetPath);
+    }
+  });
+  
   console.log('✅ Client build files copied to public directory');
 } else {
   console.log('⚠️  Client build directory not found, skipping copy');
 }
 
-// Create a simple index.html in public if it doesn't exist
+// Create a simple index.html in public if React build didn't create one
 const indexHtmlPath = path.join(publicDir, 'index.html');
-if (!fs.existsSync(indexHtmlPath)) {
+const reactIndexExists = fs.existsSync(clientBuildDir) && fs.existsSync(path.join(clientBuildDir, 'index.html'));
+
+if (!fs.existsSync(indexHtmlPath) && !reactIndexExists) {
   const indexHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
