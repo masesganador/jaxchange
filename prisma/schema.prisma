@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?  @unique
+  passwordHash  String
+  status        UserStatus @default(PENDING)
+  referralCode  String?  @unique
+  referredBy    String?
+  referredByUser User?   @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals     User[]   @relation("UserReferrals")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLogin     DateTime?
+  emailVerified Boolean  @default(false)
+  phoneVerified Boolean  @default(false)
+
+  // Relations
+  profile       UserProfile?
+  verification  UserVerification?
+  preferences   UserPreferences?
+  orders        Order[]
+  balances      UserBalance[]
+  paymentMethods PaymentMethod[]
+  transactionHistory TransactionHistory[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  addressLine1 String?
+  addressLine2 String?
+  city        String?
+  parish      String?
+  postalCode  String?
+  country     String   @default("JAM")
+  occupation  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserVerification {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  kycStatus         KYCStatus @default(NONE)
+  verificationLevel Int      @default(0)
+  documentsUploadedAt DateTime?
+  documentsVerifiedAt DateTime?
+  verificationNotes String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_verification")
+}
+
+model UserPreferences {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  notificationEmail Boolean  @default(true)
+  notificationSms   Boolean  @default(true)
+  notificationPush  Boolean  @default(true)
+  tradingLimitDaily Decimal  @default(500.00) @db.Decimal(15,2)
+  tradingLimitMonthly Decimal @default(2000.00) @db.Decimal(15,2)
+  twoFactorEnabled  Boolean  @default(false)
+  preferredCurrency String   @default("USD")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  orderType       OrderType
+  cryptoSymbol    String
+  fiatSymbol      String      @default("USD")
+  amount          Decimal     @db.Decimal(20,8)
+  price           Decimal?    @db.Decimal(15,2)
+  totalAmount     Decimal     @db.Decimal(15,2)
+  platformFee     Decimal     @default(0) @db.Decimal(15,2)
+  paymentMethodFee Decimal    @default(0) @db.Decimal(15,2)
+  status          OrderStatus @default(PENDING)
+  exchangeId      String?
+  externalOrderId String?
+  paymentMethod   String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  expiresAt       DateTime?
+  completedAt     DateTime?
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+  transactionHistory TransactionHistory[]
+
+  @@map("orders")
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  orderId       String
+  txnType       TransactionType
+  cryptoSymbol  String?
+  fiatSymbol    String?
+  amount        Decimal         @db.Decimal(20,8)
+  fee           Decimal         @default(0) @db.Decimal(15,2)
+  exchangeId    String?
+  externalTxnId String?
+  blockchainHash String?
+  status        TransactionStatus @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  completedAt   DateTime?
+
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+model UserBalance {
+  userId            String
+  cryptoSymbol      String
+  availableBalance  Decimal  @default(0) @db.Decimal(20,8)
+  reservedBalance   Decimal  @default(0) @db.Decimal(20,8)
+  updatedAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, cryptoSymbol])
+  @@map("user_balances")
+}
+
+model TransactionHistory {
+  id          String              @id @default(cuid())
+  userId      String
+  orderId     String?
+  txnType     TransactionHistoryType
+  cryptoSymbol String?
+  fiatSymbol  String?
+  cryptoAmount Decimal?           @db.Decimal(20,8)
+  fiatAmount  Decimal?            @db.Decimal(15,2)
+  feeAmount   Decimal             @default(0) @db.Decimal(15,2)
+  status      TransactionHistoryStatus
+  description String?
+  timestamp   DateTime            @default(now())
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order       Order?              @relation(fields: [orderId], references: [id])
+
+  @@map("transaction_history")
+}
+
+model PaymentMethod {
+  id              String   @id @default(cuid())
+  userId          String
+  methodType      PaymentMethodType
+  bankName        String?
+  accountNumberLast4 String?
+  cardLast4       String?
+  cardBrand       String?
+  isPrimary       Boolean  @default(false)
+  isVerified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payment_methods")
+}
+
+model Exchange {
+  id                String   @id
+  name              String
+  apiEndpoint       String
+  status            ExchangeStatus @default(ACTIVE)
+  supportedPairs    String[]
+  tradingFees       Decimal  @default(0.001) @db.Decimal(5,4)
+  withdrawalFees    Json?
+  minTradeAmounts   Json?
+  maxTradeAmounts   Json?
+  priority          Int      @default(1)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  marketPrices      MarketPrice[]
+  exchangeBalances  ExchangeBalance[]
+  credentials       ExchangeCredentials?
+
+  @@map("exchanges")
+}
+
+model MarketPrice {
+  id          String   @id @default(cuid())
+  symbol      String
+  baseSymbol  String
+  exchangeId  String
+  bidPrice    Decimal  @db.Decimal(15,8)
+  askPrice    Decimal  @db.Decimal(15,8)
+  lastPrice   Decimal? @db.Decimal(15,8)
+  volume24h   Decimal? @db.Decimal(20,8)
+  change24h   Decimal? @db.Decimal(10,6)
+  timestamp   DateTime @default(now())
+
+  exchange    Exchange @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+
+  @@unique([symbol, baseSymbol, exchangeId])
+  @@map("market_prices")
+}
+
+model ExchangeBalance {
+  exchangeId        String
+  cryptoSymbol      String
+  availableBalance  Decimal  @default(0) @db.Decimal(20,8)
+  reservedBalance   Decimal  @default(0) @db.Decimal(20,8)
+  lastUpdated       DateTime @default(now())
+
+  exchange          Exchange @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+
+  @@id([exchangeId, cryptoSymbol])
+  @@map("exchange_balances")
+}
+
+model ExchangeCredentials {
+  exchangeId          String   @id
+  apiKeyEncrypted     String
+  secretKeyEncrypted  String
+  passphraseEncrypted String?
+  isTestnet           Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  exchange            Exchange @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+
+  @@map("exchange_credentials")
+}
+
+model SupportedCryptocurrency {
+  id                  String   @id
+  name                String
+  symbol              String
+  decimals            Int      @default(8)
+  isActive            Boolean  @default(true)
+  minPurchaseAmount   Decimal  @default(10) @db.Decimal(15,2)
+  maxPurchaseAmount   Decimal  @default(25000) @db.Decimal(15,2)
+  iconUrl             String?
+  description         String?
+  blockchainNetwork   String?
+  contractAddress     String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("supported_cryptocurrencies")
+}
+
+// Enums
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum KYCStatus {
+  NONE
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum OrderType {
+  BUY
+  SELL
+  LIMIT_BUY
+  LIMIT_SELL
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  EXCHANGE
+  FEE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionHistoryType {
+  BUY
+  SELL
+  DEPOSIT
+  WITHDRAWAL
+  FEE
+  REFUND
+  REFERRAL_BONUS
+}
+
+enum TransactionHistoryStatus {
+  COMPLETED
+  FAILED
+  PENDING
+}
+
+enum PaymentMethodType {
+  BANK_ACCOUNT
+  CREDIT_CARD
+  DEBIT_CARD
+  MOBILE_PAYMENT
+}
+
+enum ExchangeStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}

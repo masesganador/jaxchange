@@ -33,7 +33,8 @@
     }
   },
   "include": [
-    "src/**/*",
+    "src/server/**/*",
+    "src/shared/types/**/*",
     "api/**/*",
     "prisma/**/*"
   ],

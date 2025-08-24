@@ -6,37 +6,31 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import path from 'path';
 
-// Import config and other modules
-import config from '../src/config';
-import { db } from '../src/shared/database/connection';
-import { errorHandler, notFoundHandler } from '../src/shared/middleware/error';
-import userRoutes from '../src/services/user-management/routes';
+// Import config and other modules from the new server structure
+import config from '../src/server/config';
+import DatabaseService from '../src/server/services/database';
+import { errorHandler, notFoundHandler } from '../src/server/middleware/error';
+import userRoutes from '../src/server/routes/userRoutes';
 
 // Initialize database connections for serverless
 let dbInitialized = false;
 
 const initializeDatabase = async (): Promise<void> => {
   if (dbInitialized) return;
-  
+
   try {
     console.log('🔄 Initializing database connections for serverless function...');
-    
-    try {
-      await db.initializePostgreSQL();
-    } catch (error) {
-      console.warn('⚠️  PostgreSQL initialization failed, continuing without database...');
-    }
-    
-    try {
-      await db.initializeRedis();
-    } catch (error) {
-      console.warn('⚠️  Redis initialization failed, continuing without Redis...');
-    }
-    
+
+    const dbService = DatabaseService.getInstance();
+    await dbService.connect();
+
     dbInitialized = true;
+    console.log('✅ Database initialized successfully');
   } catch (error) {
     console.error('❌ Database initialization failed:', error);
+    // Continue without database for now
   }
 };
 
@@ -55,39 +49,42 @@ app.use(helmet({
   },
 }));
 
+// CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://jaxchange.com', 'https://www.jaxchange.com']
-    : ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true,
-  optionsSuccessStatus: 200,
+  origin: config.corsOrigin,
+  credentials: true
 }));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: config.security.rateLimitWindow,
-  max: config.security.rateLimitMax,
+  windowMs: config.rateLimitWindowMs,
+  max: config.rateLimitMax,
   message: {
     success: false,
-    error: 'Too many requests from this IP, please try again later.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+    error: 'Too many requests from this IP, please try again later',
+    timestamp: new Date().toISOString()
+  }
 });
-
 app.use('/api/', limiter);
 
-// Body parsing middleware
+// Compression
+app.use(compression());
+
+// Logging
+if (config.nodeEnv === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Compression middleware
-app.use(compression());
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
-// Logging middleware
-app.use(morgan(config.server.nodeEnv === 'production' ? 'combined' : 'dev'));
-
-// Swagger API documentation
+// Swagger documentation
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -97,82 +94,84 @@ const swaggerOptions = {
       description: 'Jamaican Cryptocurrency Purchase Platform API',
       contact: {
         name: 'JAXChange Support',
-        email: 'support@jaxchange.com',
-      },
+        email: 'support@jaxchange.com'
+      }
     },
     servers: [
       {
-        url: config.server.nodeEnv === 'production' 
-          ? 'https://api.jaxchange.com' 
-          : `http://localhost:${config.server.port}`,
-        description: config.server.nodeEnv === 'production' ? 'Production server' : 'Development server',
-      },
+        url: 'https://jaxchange.vercel.app',
+        description: 'Production server'
+      }
     ],
     components: {
       securitySchemes: {
         bearerAuth: {
           type: 'http',
           scheme: 'bearer',
-          bearerFormat: 'JWT',
-        },
-      },
+          bearerFormat: 'JWT'
+        }
+      }
     },
+    security: [
+      {
+        bearerAuth: []
+      }
+    ]
   },
-  apis: ['./src/**/*.ts'], // Path to the API files
+  apis: ['./src/server/routes/*.ts', './src/server/controllers/*.ts']
 };
 
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+const specs = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-// Serve Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'JAXChange API Documentation',
-}));
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
     success: true,
-    message: 'JAXChange API is running',
-    timestamp: new Date().toISOString(),
-    environment: config.server.nodeEnv,
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      api: `/api/${config.server.apiVersion}`,
-      docs: '/api-docs'
+    data: {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: config.nodeEnv,
+      version: '1.0.0'
     }
   });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
+// API routes
+app.use(`/api/${config.apiVersion}/users`, userRoutes);
+
+// Root API endpoint
+app.get('/api', (req, res) => {
+  res.status(200).json({
     success: true,
-    message: 'JAXChange API is running',
-    timestamp: new Date().toISOString(),
-    environment: config.server.nodeEnv,
-    version: '1.0.0',
+    data: {
+      message: 'Welcome to JAXChange API',
+      version: '1.0.0',
+      documentation: '/api-docs',
+      health: '/health',
+      timestamp: new Date().toISOString()
+    }
   });
 });
 
-// API version endpoint
-app.get(`/api/${config.server.apiVersion}`, (req, res) => {
-  res.json({
-    success: true,
-    message: `JAXChange API ${config.server.apiVersion}`,
-    documentation: '/api-docs',
-  });
+// Serve React app for all other routes (SPA routing)
+app.get('*', (req, res) => {
+  // Check if the request is for an API route
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      error: 'API endpoint not found',
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Serve the React app for all other routes
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Service routes
-app.use(`/api/${config.server.apiVersion}/auth`, userRoutes);
-app.use(`/api/${config.server.apiVersion}/users`, userRoutes);
-
-// 404 handler
+// Error handling
 app.use(notFoundHandler);
-
-// Global error handler
 app.use(errorHandler);
 
 // Vercel serverless function handler
@@ -180,7 +179,7 @@ export default async function handler(req: any, res: any) {
   try {
     // Initialize database on first request
     await initializeDatabase();
-    
+
     // Handle the request using the Express app
     return new Promise((resolve, reject) => {
       app(req, res, (err: any) => {
@@ -197,7 +196,8 @@ export default async function handler(req: any, res: any) {
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: 'An unexpected error occurred'
+      message: 'An unexpected error occurred',
+      timestamp: new Date().toISOString()
     });
     return Promise.resolve();
   }
