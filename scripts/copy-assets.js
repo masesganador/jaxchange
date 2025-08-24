@@ -35,6 +35,7 @@ if (fs.existsSync(clientBuildDir)) {
   console.log('⚠️  Client build directory not found, creating static React app');
   
   // Create a static React app structure for Vercel deployment
+  const indexHtmlPath = path.join(publicDir, 'index.html');
   const staticApp = `<!DOCTYPE html>
 <html lang="en">
 <head>
