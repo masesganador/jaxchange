@@ -5,6 +5,7 @@ function copyAssets() {
   try {
     console.log('📁 Copying assets...');
     
+    // Copy migration files
     const sourceDir = path.join(__dirname, '..', 'src', 'shared', 'database', 'migrations');
     const targetDir = path.join(__dirname, '..', 'dist', 'shared', 'database', 'migrations');
     
@@ -34,6 +35,29 @@ function copyAssets() {
       console.log(`🎉 Successfully copied ${files.filter(f => f.endsWith('.sql')).length} migration files`);
     } else {
       console.log('⚠️  Source migrations directory not found');
+    }
+    
+    // Copy API handler for Vercel
+    const apiSourceDir = path.join(__dirname, '..', 'api');
+    const apiTargetDir = path.join(__dirname, '..', 'dist', 'api');
+    
+    if (fs.existsSync(apiSourceDir)) {
+      // Create target directory if it doesn't exist
+      if (!fs.existsSync(apiTargetDir)) {
+        fs.mkdirSync(apiTargetDir, { recursive: true });
+      }
+      
+      const apiFiles = fs.readdirSync(apiSourceDir);
+      
+      apiFiles.forEach(file => {
+        if (file.endsWith('.ts') || file.endsWith('.js')) {
+          const sourcePath = path.join(apiSourceDir, file);
+          const targetPath = path.join(apiTargetDir, file);
+          
+          fs.copyFileSync(sourcePath, targetPath);
+          console.log(`✅ Copied API file: ${file}`);
+        }
+      });
     }
     
   } catch (error) {

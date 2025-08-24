@@ -132,10 +132,13 @@ app.use(notFoundHandler);
 // Global error handler
 app.use(errorHandler);
 
-// Server startup
-const startServer = async (): Promise<void> => {
+// Initialize database connections (only for serverless)
+let dbInitialized = false;
+
+const initializeDatabase = async (): Promise<void> => {
+  if (dbInitialized) return;
+  
   try {
-    // Initialize database connections
     console.log('🔄 Initializing database connections...');
     
     try {
@@ -149,6 +152,17 @@ const startServer = async (): Promise<void> => {
     } catch (error) {
       console.warn('⚠️  Redis initialization failed, continuing without Redis...');
     }
+    
+    dbInitialized = true;
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+  }
+};
+
+// Server startup (only for development)
+const startServer = async (): Promise<void> => {
+  try {
+    await initializeDatabase();
 
     // Start the server
     app.listen(config.server.port, () => {
@@ -183,17 +197,21 @@ const gracefulShutdown = async (): Promise<void> => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: unknown, promise: Promise<any>) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  gracefulShutdown();
+  if (process.env.NODE_ENV !== 'production') {
+    gracefulShutdown();
+  }
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error: Error) => {
   console.error('Uncaught Exception thrown:', error);
-  gracefulShutdown();
+  if (process.env.NODE_ENV !== 'production') {
+    gracefulShutdown();
+  }
 });
 
-// Start the server
-if (require.main === module) {
+// Start the server only in development
+if (require.main === module && process.env.NODE_ENV !== 'production') {
   startServer();
 }
 
