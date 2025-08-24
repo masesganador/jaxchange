@@ -1,4 +1,4 @@
-import app from '../dist/index.js';
+import app from '../src/index';
 
 // Initialize database connections for serverless
 let dbInitialized = false;
@@ -9,7 +9,7 @@ const initializeDatabase = async (): Promise<void> => {
   try {
     console.log('🔄 Initializing database connections for serverless function...');
     
-    const { db } = await import('../dist/shared/database/connection.js');
+    const { db } = await import('../src/shared/database/connection');
     
     try {
       await db.initializePostgreSQL();
