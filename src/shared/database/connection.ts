@@ -8,16 +8,24 @@ export class DatabaseConnection {
 
   static async initializePostgreSQL(): Promise<Pool> {
     if (!this.pgPool) {
-      const poolConfig: PoolConfig = {
-        host: config.database.host,
-        port: config.database.port,
-        database: config.database.name,
-        user: config.database.user,
-        password: config.database.password,
-        max: 20, // Maximum number of clients in the pool
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
-      };
+      const poolConfig: PoolConfig = config.database.url 
+        ? {
+            connectionString: config.database.url,
+            ssl: config.server.nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
+            max: config.server.nodeEnv === 'production' ? 5 : 20, // Smaller pool for serverless
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
+          }
+        : {
+            host: config.database.host,
+            port: config.database.port,
+            database: config.database.name,
+            user: config.database.user,
+            password: config.database.password,
+            max: config.server.nodeEnv === 'production' ? 5 : 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
+          };
 
       this.pgPool = new Pool(poolConfig);
 
@@ -37,14 +45,25 @@ export class DatabaseConnection {
 
   static async initializeRedis(): Promise<Redis> {
     if (!this.redisClient) {
-      this.redisClient = new Redis({
-        host: config.redis.host,
-        port: config.redis.port,
-        password: config.redis.password || undefined,
-        retryDelayOnFailover: 100,
-        enableReadyCheck: false,
-        lazyConnect: true,
-      });
+      const redisConfig = config.redis.url
+        ? {
+            url: config.redis.url,
+            retryDelayOnFailover: 100,
+            enableReadyCheck: false,
+            lazyConnect: true,
+            maxRetriesPerRequest: 3,
+          }
+        : {
+            host: config.redis.host,
+            port: config.redis.port,
+            password: config.redis.password || undefined,
+            retryDelayOnFailover: 100,
+            enableReadyCheck: false,
+            lazyConnect: true,
+            maxRetriesPerRequest: 3,
+          };
+
+      this.redisClient = new Redis(redisConfig);
 
       // Test connection
       try {
