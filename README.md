@@ -131,7 +131,7 @@ See `.env.example` for all configuration options including:
 - JWT secrets
 - Exchange API keys
 - Payment processor keys
-- KYC service credentials
+- KYC service credentials.
 
 ## Contributing
 
